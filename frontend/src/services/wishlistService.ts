@@ -24,3 +24,15 @@ export const getWishlist = async (name: string) => {
   const response = await axios.get(`${API_BASE_URL}/wishlists/${encodeURIComponent(name)}`);
   return response.data;
 };
+
+export const deleteWishlist = async (name: string) => {
+  const response = await axios.delete(`${API_BASE_URL}/wishlists/${encodeURIComponent(name)}`);
+  return response.data;
+};
+
+export const removeFromWishlist = async (wishlistName: string, placeName: string) => {
+  const response = await axios.delete(
+    `${API_BASE_URL}/wishlists/${encodeURIComponent(wishlistName)}/places/${encodeURIComponent(placeName)}`
+  );
+  return response.data;
+};
