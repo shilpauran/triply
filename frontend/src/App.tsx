@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Button,
   Container,
@@ -49,7 +50,8 @@ const VisuallyHiddenInput = styled('input')({
   width: 1,
 });
 
-function App() {
+const App: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImageData | null>(null);
@@ -510,7 +512,18 @@ function App() {
                         )}
                       </List>
                       {selectedWishlist && (
-                          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={() => {
+                                  // TODO: Add prepare itinerary functionality
+                                  console.log('Prepare itinerary for:', selectedWishlist.name);
+                                }}
+                                sx={{ mt: 2 }}
+                            >
+                              Prepare Itinerary
+                            </Button>
                             <Button
                                 variant="outlined"
                                 color="error"
@@ -532,23 +545,36 @@ function App() {
                                 <div key={wishlist.name}>
                                   <ListItem
                                       secondaryAction={
-                                        <IconButton
-                                            edge="end"
-                                            aria-label="delete"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleDeleteWishlist(wishlist.name);
-                                            }}
-                                            color="error"
-                                        >
-                                          <DeleteIcon />
-                                        </IconButton>
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                          <Button
+                                              variant="contained"
+                                              size="small"
+                                              color="primary"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                // TODO: Add prepare itinerary functionality
+                                                console.log('Prepare itinerary for:', wishlist.name);
+                                              }}
+                                          >
+                                            Prepare Itinerary
+                                          </Button>
+                                          <IconButton
+                                              edge="end"
+                                              aria-label="delete"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteWishlist(wishlist.name);
+                                              }}
+                                              color="error"
+                                          >
+                                            <DeleteIcon />
+                                          </IconButton>
+                                        </Box>
                                       }
                                       disablePadding
                                   >
                                     <ListItemButton onClick={() => handleViewWishlist(wishlist)}>
                                       <ListItemIcon>
-                                        <ListAltIcon color="primary" />
                                       </ListItemIcon>
                                       <ListItemText
                                           primary={wishlist.name}
