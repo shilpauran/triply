@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ItineraryPage from './pages/ItineraryPage';
 import {
   Button,
   Container,
@@ -64,6 +65,20 @@ const App: React.FC = () => {
   const [newWishlistName, setNewWishlistName] = useState('');
   const [wishlistError, setWishlistError] = useState<string | null>(null);
   const [wishlistSuccess, setWishlistSuccess] = useState<string | null>(null);
+  const [showItineraryPage, setShowItineraryPage] = useState(false);
+  const [currentWishlist, setCurrentWishlist] = useState<{name: string} | null>(null);
+
+  // Handle navigation to itinerary page
+  const navigateToItinerary = (wishlist: {name: string}) => {
+    setCurrentWishlist(wishlist);
+    setShowItineraryPage(true);
+  };
+
+  // Handle going back from itinerary page
+  const handleBackFromItinerary = () => {
+    setShowItineraryPage(false);
+    setCurrentWishlist(null);
+  };
 
   // Calculate total places in all wishlists
   const totalPlaces = wishlists.reduce((sum, wl) => sum + wl.places.length, 0);
@@ -73,9 +88,7 @@ const App: React.FC = () => {
     open: false,
     title: '',
     message: '',
-    onConfirm: () => {
-      // This is a no-op function that will be overridden
-    }
+    onConfirm: () => {}
   });
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,34 +122,22 @@ const App: React.FC = () => {
   // Load wishlists when the dialog opens
   const loadWishlists = useCallback(async () => {
     try {
-      console.log('Fetching wishlists...');
       const wishlistNames = await getAllWishlists();
-      console.log('Received wishlist names:', wishlistNames);
-
-      // Ensure wishlistNames is an array
       if (!Array.isArray(wishlistNames)) {
-        console.error('Expected wishlistNames to be an array, got:', wishlistNames);
         setWishlists([]);
         return;
       }
-
-      // For each wishlist name, fetch its places
       const wishlistsWithPlaces = [];
       for (const name of wishlistNames) {
         try {
           const places = await getWishlist(name);
           wishlistsWithPlaces.push({ name, places });
-        } catch (err) {
-          console.error(`Failed to load places for wishlist ${name}:`, err);
-          // Continue with other wishlists even if one fails
+        } catch {
           wishlistsWithPlaces.push({ name, places: [] });
         }
       }
-
-      console.log('Fetched wishlists with places:', wishlistsWithPlaces);
       setWishlists(wishlistsWithPlaces);
-    } catch (err) {
-      console.error('Failed to load wishlists:', err);
+    } catch {
       setWishlistError('Failed to load wishlists. Please try again.');
       setWishlists([]);
     }
@@ -150,47 +151,32 @@ const App: React.FC = () => {
 
   const handleAddToWishlist = async (wishlistName: string) => {
     if (!result) return;
-
     try {
-      // Clear any previous messages
       setWishlistError(null);
-
-      // Check if the place is already in this wishlist
       const wishlist = wishlists.find(wl => wl.name === wishlistName);
       if (wishlist && wishlist.places.includes(result.placeName)) {
         setWishlistError(`"${result.placeName}" is already in this wishlist`);
         setTimeout(() => setWishlistError(null), 3000);
         return;
       }
-
       await addToWishlist(wishlistName, result.placeName);
-
-      // Update the local state
       const updatedWishlists = wishlists.map(wl => {
         if (wl.name === wishlistName) {
-          return {
-            ...wl,
-            places: [...wl.places, result.placeName]
-          };
+          return { ...wl, places: [...wl.places, result.placeName] };
         }
         return wl;
       });
-
       setWishlists(updatedWishlists);
       setWishlistSuccess(`"${result.placeName}" has been added to "${wishlistName}"`);
       setTimeout(() => setWishlistSuccess(null), 3000);
-
-      // Update the selected wishlist if it's currently being viewed
       if (selectedWishlist && selectedWishlist.name === wishlistName) {
-        const updatedWishlist = {
+        setSelectedWishlist({
           ...selectedWishlist,
           places: [...selectedWishlist.places, result.placeName]
-        };
-        setSelectedWishlist(updatedWishlist);
+        });
       }
-    } catch (err) {
+    } catch {
       setWishlistError('Failed to add to wishlist. Please try again.');
-      console.error('Error adding to wishlist:', err);
     }
   };
 
@@ -199,28 +185,19 @@ const App: React.FC = () => {
       setWishlistError('Please enter a wishlist name');
       return;
     }
-
     try {
-      console.log('Creating wishlist:', newWishlistName);
       await createWishlist(newWishlistName);
-
-      // Add the new wishlist to local state
-      const newWishlist = { name: newWishlistName, places: [] };
-      setWishlists([...wishlists, newWishlist]);
-
+      setWishlists([...wishlists, { name: newWishlistName, places: [] }]);
       setNewWishlistName('');
       setWishlistError(null);
       setWishlistSuccess(`Wishlist "${newWishlistName}" created successfully!`);
       setTimeout(() => setWishlistSuccess(null), 3000);
-    } catch (err) {
-      const errorMsg = 'Failed to create wishlist. The name might already exist.';
-      console.error('Error creating wishlist:', err);
-      setWishlistError(errorMsg);
+    } catch {
+      setWishlistError('Failed to create wishlist. The name might already exist.');
     }
   };
 
   const handleViewWishlist = (wishlist: {name: string, places: string[]}) => {
-    // Don't show any error when just viewing the wishlist
     setWishlistError(null);
     setWishlistSuccess(null);
     setSelectedWishlist(wishlist);
@@ -231,43 +208,27 @@ const App: React.FC = () => {
   };
 
   const handleRemoveFromWishlist = async (wishlistName: string, placeName: string) => {
-    console.log('Removing', placeName, 'from', wishlistName);
     if (!window.confirm(`Are you sure you want to remove "${placeName}" from this wishlist?`)) {
       return;
     }
-
     try {
-      // Make the API call to remove the place from the wishlist
       await removeFromWishlist(wishlistName, placeName);
-
-      // Update the wishlists state
       const updatedWishlists = wishlists.map(wl => {
         if (wl.name === wishlistName) {
-          return {
-            ...wl,
-            places: wl.places.filter(p => p !== placeName)
-          };
+          return { ...wl, places: wl.places.filter(p => p !== placeName) };
         }
         return wl;
       });
-
       setWishlists(updatedWishlists);
-
-      // Update the selected wishlist if it's currently being viewed
       if (selectedWishlist && selectedWishlist.name === wishlistName) {
-        const updatedSelectedWishlist = {
+        setSelectedWishlist({
           ...selectedWishlist,
           places: selectedWishlist.places.filter(p => p !== placeName)
-        };
-        setSelectedWishlist(updatedSelectedWishlist);
+        });
       }
-
-      // Show success message
       setWishlistSuccess(`Successfully removed "${placeName}" from "${wishlistName}"`);
       setTimeout(() => setWishlistSuccess(null), 3000);
-
-    } catch (error) {
-      console.error('Error removing place from wishlist:', error);
+    } catch {
       setWishlistError(`Failed to remove "${placeName}" from "${wishlistName}". Please try again.`);
       setTimeout(() => setWishlistError(null), 3000);
     }
@@ -281,20 +242,13 @@ const App: React.FC = () => {
       onConfirm: async () => {
         try {
           await deleteWishlist(wishlistName);
-
-          // Update local state
-          const updatedWishlists = wishlists.filter(wl => wl.name !== wishlistName);
-          setWishlists(updatedWishlists);
-
-          // Clear selected wishlist if it's the one being deleted
+          setWishlists(wishlists.filter(wl => wl.name !== wishlistName));
           if (selectedWishlist && selectedWishlist.name === wishlistName) {
             setSelectedWishlist(null);
           }
-
           setWishlistSuccess(`Wishlist "${wishlistName}" has been deleted`);
           setTimeout(() => setWishlistSuccess(null), 3000);
-        } catch (err) {
-          console.error('Error deleting wishlist:', err);
+        } catch {
           setWishlistError('Failed to delete wishlist. Please try again.');
           setTimeout(() => setWishlistError(null), 3000);
         }
@@ -312,6 +266,15 @@ const App: React.FC = () => {
   const handleCloseConfirmDialog = () => {
     setConfirmDialog(prev => ({ ...prev, open: false }));
   };
+
+  if (showItineraryPage && currentWishlist) {
+    return (
+        <ItineraryPage
+            wishlistName={currentWishlist.name}
+            onBack={handleBackFromItinerary}
+        />
+    );
+  }
 
   return (
       <>
@@ -331,17 +294,14 @@ const App: React.FC = () => {
             </IconButton>
           </Toolbar>
         </AppBar>
-
         <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
           <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
             <Typography variant="h4" component="h1" gutterBottom>
               Discover Places
             </Typography>
-
             <Typography variant="body1" paragraph>
               Upload an image to detect the place shown in it.
             </Typography>
-
             <Box sx={{ my: 4 }}>
               <Button
                   component="label"
@@ -356,7 +316,6 @@ const App: React.FC = () => {
                     onChange={handleFileChange}
                 />
               </Button>
-
               {selectedFile && (
                   <Box sx={{ mt: 2, textAlign: 'center' }}>
                     <img
@@ -372,7 +331,6 @@ const App: React.FC = () => {
                   </Box>
               )}
             </Box>
-
             {selectedFile && !result && (
                 <Box sx={{ my: 2 }}>
                   <Button
@@ -386,13 +344,11 @@ const App: React.FC = () => {
                   </Button>
                 </Box>
             )}
-
             {error && (
-                <Alert severity="error" sx={{ mt: 2 }}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
                   {error}
                 </Alert>
             )}
-
             {result && (
                 <Box sx={{ mt: 4 }}>
                   <Typography variant="h6">Detected Place: {result.placeName}</Typography>
@@ -411,7 +367,6 @@ const App: React.FC = () => {
                   </Box>
                 </Box>
             )}
-
             {/* Wishlist Dialog */}
             <Dialog
                 open={wishlistDialogOpen}
@@ -439,22 +394,18 @@ const App: React.FC = () => {
                   </IconButton>
                 </Box>
               </DialogTitle>
-
               <DialogContent>
                 {wishlistError && (
                     <Alert severity="error" sx={{ mb: 2 }} onClose={() => setWishlistError(null)}>
                       {wishlistError}
                     </Alert>
                 )}
-
                 {wishlistSuccess && (
                     <Alert severity="success" sx={{ mb: 2 }} onClose={() => setWishlistSuccess(null)}>
                       {wishlistSuccess}
                     </Alert>
                 )}
-
                 {selectedWishlist ? (
-                    // Wishlist details view
                     <>
                       {result && (
                           <Box sx={{ mb: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
@@ -488,7 +439,6 @@ const App: React.FC = () => {
                                             edge="end"
                                             aria-label="delete"
                                             onClick={() => handleRemoveFromWishlist(selectedWishlist.name, place)}
-                                            color="error"
                                         >
                                           <DeleteIcon />
                                         </IconButton>
@@ -502,7 +452,7 @@ const App: React.FC = () => {
                                       <ListItemText primary={place} />
                                     </ListItemButton>
                                   </ListItem>
-                                  {index < selectedWishlist.places.length - 1 && <Divider />}
+                                  <Divider />
                                 </React.Fragment>
                             ))
                         ) : (
@@ -511,33 +461,27 @@ const App: React.FC = () => {
                             </Typography>
                         )}
                       </List>
-                      {selectedWishlist && (
-                          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={() => {
-                                  // TODO: Add prepare itinerary functionality
-                                  console.log('Prepare itinerary for:', selectedWishlist.name);
-                                }}
-                                sx={{ mt: 2 }}
-                            >
-                              Prepare Itinerary
-                            </Button>
-                            <Button
-                                variant="outlined"
-                                color="error"
-                                startIcon={<DeleteIcon />}
-                                onClick={() => handleDeleteWishlist(selectedWishlist.name)}
-                                sx={{ mt: 2 }}
-                            >
-                              Delete Wishlist
-                            </Button>
-                          </Box>
-                      )}
+                      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={() => navigateToItinerary(selectedWishlist)}
+                            sx={{ mt: 2 }}
+                        >
+                          Prepare Itinerary
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            color="error"
+                            startIcon={<DeleteIcon />}
+                            onClick={() => handleDeleteWishlist(selectedWishlist.name)}
+                            sx={{ mt: 2 }}
+                        >
+                          Delete Wishlist
+                        </Button>
+                      </Box>
                     </>
                 ) : (
-                    // Wishlist list view
                     <>
                       <List>
                         {wishlists.length > 0 ? (
@@ -545,42 +489,25 @@ const App: React.FC = () => {
                                 <div key={wishlist.name}>
                                   <ListItem
                                       secondaryAction={
-                                        <Box sx={{ display: 'flex', gap: 1 }}>
-                                          <Button
-                                              variant="contained"
-                                              size="small"
-                                              color="primary"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                // TODO: Add prepare itinerary functionality
-                                                console.log('Prepare itinerary for:', wishlist.name);
-                                              }}
-                                          >
-                                            Prepare Itinerary
-                                          </Button>
-                                          <IconButton
-                                              edge="end"
-                                              aria-label="delete"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteWishlist(wishlist.name);
-                                              }}
-                                              color="error"
-                                          >
-                                            <DeleteIcon />
-                                          </IconButton>
-                                        </Box>
+                                        <IconButton
+                                            edge="end"
+                                            aria-label="delete"
+                                            onClick={() => handleDeleteWishlist(wishlist.name)}
+                                        >
+                                          <DeleteIcon />
+                                        </IconButton>
                                       }
                                       disablePadding
                                   >
                                     <ListItemButton onClick={() => handleViewWishlist(wishlist)}>
                                       <ListItemIcon>
+                                        <ListAltIcon color="primary" />
                                       </ListItemIcon>
                                       <ListItemText
                                           primary={wishlist.name}
-                                          secondary={`${wishlist.places.length} ${wishlist.places.length === 1 ? 'place' : 'places'}`}
+                                          secondary={`${wishlist.places.length} place${wishlist.places.length !== 1 ? 's' : ''}`}
                                       />
-                                      <ChevronRight color="action" />
+                                      <ChevronRight />
                                     </ListItemButton>
                                   </ListItem>
                                   <Divider />
@@ -616,7 +543,6 @@ const App: React.FC = () => {
                 )}
               </DialogContent>
             </Dialog>
-
             {/* Confirmation Dialog */}
             <Dialog
                 open={confirmDialog.open}
@@ -650,6 +576,6 @@ const App: React.FC = () => {
         </Container>
       </>
   );
-}
+};
 
 export default App;
