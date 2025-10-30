@@ -70,3 +70,15 @@ export const getImageByUrl = async (url: string): Promise<ImageByUrlResponse> =>
   const response = await axios.get(`${API_BASE_URL}/api/images/by-url`, { params: { url } });
   return response.data as ImageByUrlResponse;
 };
+
+// Cards API
+export interface CardDTO {
+  title: string;
+  shortDescription: string;
+  durationDays: number;
+}
+
+export const getCards = async (): Promise<CardDTO[]> => {
+  const response = await axios.get(`${API_BASE_URL}/api/cards`);
+  return response.data as CardDTO[];
+};

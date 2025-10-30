@@ -614,7 +614,7 @@ const App: React.FC = () => {
                             onClick={() => navigateToItinerary(selectedWishlist)}
                             sx={{ mt: 2 }}
                         >
-                          Prepare Itinerary
+                          Personalize My Itinerary
                         </Button>
                         <Button
                             variant="outlined"
