@@ -20,7 +20,7 @@ public class ImageService {
         this.imageRepository = imageRepository;
     }
 
-    public ImageData uploadImage(MultipartFile file, String placeName, String url, String description) throws IOException {
+    public ImageData uploadImage(MultipartFile file, String placeName, String url, String description, MultipartFile iconFile) throws IOException {
         ImageData imageData = new ImageData();
         imageData.setFileName(file.getOriginalFilename());
         imageData.setFileType(file.getContentType());
@@ -29,6 +29,9 @@ public class ImageService {
         imageData.setPlaceName(placeName);
         imageData.setUrl(url);
         imageData.setDescription(description);
+        if (iconFile != null && !iconFile.isEmpty()) {
+            imageData.setIconFile(iconFile.getBytes());
+        }
         
         return imageRepository.save(imageData);
     }

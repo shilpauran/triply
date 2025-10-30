@@ -135,17 +135,23 @@ const App: React.FC = () => {
       const response = await checkImage(file);
       setResult(response);
       setSuccess('Image checked successfully');
-      // If found in DB, fetch bytes to store base64 for wishlist
-      if (response.status === 'found' && response.imageId) {
-        try {
-          const dataUrl = await getImage(response.imageId);
-          // dataUrl format: data:<type>;base64,<payload>
-          const commaIdx = dataUrl.indexOf(',');
-          const semiIdx = dataUrl.indexOf(';');
-          const type = dataUrl.substring(5, semiIdx);
-          const base64 = dataUrl.substring(commaIdx + 1);
-          setLastCheckedImage({ base64, type });
-        } catch {
+      // Prefer iconBase64 from response; otherwise, if found by ID, fetch bytes
+      if (response.status === 'found') {
+        if (response.iconBase64 && response.fileType) {
+          setLastCheckedImage({ base64: response.iconBase64, type: response.fileType });
+        } else if (response.imageId) {
+          try {
+            const dataUrl = await getImage(response.imageId);
+            // dataUrl format: data:<type>;base64,<payload>
+            const commaIdx = dataUrl.indexOf(',');
+            const semiIdx = dataUrl.indexOf(';');
+            const type = dataUrl.substring(5, semiIdx);
+            const base64 = dataUrl.substring(commaIdx + 1);
+            setLastCheckedImage({ base64, type });
+          } catch {
+            setLastCheckedImage(null);
+          }
+        } else {
           setLastCheckedImage(null);
         }
       } else {
@@ -202,8 +208,12 @@ const App: React.FC = () => {
       }
       const imageUrlForAdd = displayMeta ? imageUrlInput.trim() : (result && result.url ? result.url : undefined);
       const descriptionForAdd = displayMeta ? displayMeta.description : (result && result.description ? result.description : undefined);
-      const imageBase64ForAdd = lastByUrlData ? lastByUrlData.imageBase64 : (lastCheckedImage ? lastCheckedImage.base64 : undefined);
-      const imageTypeForAdd = lastByUrlData ? lastByUrlData.fileType : (lastCheckedImage ? lastCheckedImage.type : undefined);
+      const imageBase64ForAdd = lastByUrlData
+        ? (lastByUrlData.iconBase64 || lastByUrlData.imageBase64)
+        : (lastCheckedImage?.base64 || (result && result.iconBase64 ? result.iconBase64 : undefined));
+      const imageTypeForAdd = lastByUrlData
+        ? lastByUrlData.fileType
+        : (lastCheckedImage?.type || (result && result.fileType ? result.fileType : undefined));
       await addToWishlist(wishlistName, placeName, imageUrlForAdd, descriptionForAdd, imageBase64ForAdd, imageTypeForAdd);
       const updatedWishlists = wishlists.map(wl => {
         if (wl.name === wishlistName) {

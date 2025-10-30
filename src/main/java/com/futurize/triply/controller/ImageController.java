@@ -34,9 +34,10 @@ public class ImageController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("placeName") String placeName,
             @RequestParam("url") String url,
-            @RequestParam(value = "description", required = false) String description) {
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "iconFile", required = false) MultipartFile iconFile) {
         try {
-            ImageData savedImage = imageService.uploadImage(file, placeName, url, description);
+            ImageData savedImage = imageService.uploadImage(file, placeName, url, description, iconFile);
             return new ResponseEntity<>(savedImage, HttpStatus.CREATED);
         } catch (IOException e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -68,6 +69,9 @@ public class ImageController {
         body.put("fileType", image.getFileType());
         body.put("size", image.getSize());
         body.put("imageBase64", Base64.getEncoder().encodeToString(image.getData()));
+        if (image.getIconFile() != null) {
+            body.put("iconBase64", Base64.getEncoder().encodeToString(image.getIconFile()));
+        }
         return new ResponseEntity<>(body, HttpStatus.OK);
     }
 
@@ -95,11 +99,17 @@ public class ImageController {
                 response.put("status", "found");
                 response.put("placeName", existingImage.get().getPlaceName());
                 response.put("imageId", existingImage.get().getId());
+                if (existingImage.get().getFileType() != null) {
+                    response.put("fileType", existingImage.get().getFileType());
+                }
                 if (existingImage.get().getUrl() != null) {
                     response.put("url", existingImage.get().getUrl());
                 }
                 if (existingImage.get().getDescription() != null) {
                     response.put("description", existingImage.get().getDescription());
+                }
+                if (existingImage.get().getIconFile() != null) {
+                    response.put("iconBase64", Base64.getEncoder().encodeToString(existingImage.get().getIconFile()));
                 }
                 return new ResponseEntity<>(response, HttpStatus.OK);
             } else {

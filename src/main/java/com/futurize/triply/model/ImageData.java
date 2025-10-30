@@ -22,6 +22,8 @@ public class ImageData {
     private String placeName;
     private String url;
     private String description;
+    // Icon image to be used in wishlists
+    private byte[] iconFile;
     
     public ImageData() {
         this.uploadedAt = Instant.now();

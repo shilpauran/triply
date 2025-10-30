@@ -10,6 +10,8 @@ export interface CheckImageResponse {
   url?: string;
   description?: string;
   message?: string;
+  fileType?: string;
+  iconBase64?: string;
 }
 
 export interface ImageByUrlResponse {
@@ -18,6 +20,7 @@ export interface ImageByUrlResponse {
   fileType: string;
   size: number;
   imageBase64: string;
+  iconBase64?: string;
 }
 
 export const checkImage = async (file: File): Promise<CheckImageResponse> => {
