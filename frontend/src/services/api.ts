@@ -75,7 +75,8 @@ export const getImageByUrl = async (url: string): Promise<ImageByUrlResponse> =>
 export interface CardDTO {
   title: string;
   shortDescription: string;
-  durationDays: number;
+  durationDays: string;
+  thumbnailImage: string;
 }
 
 export const getCards = async (): Promise<CardDTO[]> => {

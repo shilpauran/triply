@@ -3,6 +3,7 @@ import { Button, Typography, Box } from '@mui/material';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardActions from '@mui/material/CardActions';
+import CardMedia from '@mui/material/CardMedia';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { getCards, type CardDTO } from '../services/api';
 
@@ -60,11 +61,19 @@ const ItineraryPage: React.FC<ItineraryPageProps> = ({ wishlistName, onBack }) =
       >
         {cards.map((c) => (
           <Card key={c.title} variant="outlined">
+            {c.thumbnailImage && (
+              <CardMedia
+                component="img"
+                height="140"
+                image={c.thumbnailImage}
+                alt={c.title}
+              />
+            )}
             <CardContent>
               <Typography variant="h6" gutterBottom>{c.title}</Typography>
               <Typography variant="body2" color="text.secondary">{c.shortDescription}</Typography>
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                Duration: {c.durationDays} day{c.durationDays === 1 ? '' : 's'}
+                Duration: {c.durationDays}
               </Typography>
             </CardContent>
             <CardActions>
