@@ -20,19 +20,25 @@ public class ImageService {
         this.imageRepository = imageRepository;
     }
 
-    public ImageData uploadImage(MultipartFile file, String placeName) throws IOException {
+    public ImageData uploadImage(MultipartFile file, String placeName, String url, String description) throws IOException {
         ImageData imageData = new ImageData();
         imageData.setFileName(file.getOriginalFilename());
         imageData.setFileType(file.getContentType());
         imageData.setData(file.getBytes());
         imageData.setSize(file.getSize());
         imageData.setPlaceName(placeName);
+        imageData.setUrl(url);
+        imageData.setDescription(description);
         
         return imageRepository.save(imageData);
     }
 
     public Optional<ImageData> getImage(String id) {
         return imageRepository.findById(id);
+    }
+
+    public Optional<ImageData> getImageByUrl(String url) {
+        return imageRepository.findByUrl(url);
     }
 
     public List<ImageData> getAllImages() {
@@ -56,3 +62,4 @@ public class ImageService {
         return Optional.empty();
     }
 }
+

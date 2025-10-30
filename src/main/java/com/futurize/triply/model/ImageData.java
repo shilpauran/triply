@@ -20,6 +20,8 @@ public class ImageData {
     private long size;
     private Instant uploadedAt;
     private String placeName;
+    private String url;
+    private String description;
     
     public ImageData() {
         this.uploadedAt = Instant.now();

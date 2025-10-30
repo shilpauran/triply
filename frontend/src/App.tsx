@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ItineraryPage from './pages/ItineraryPage';
 import {
@@ -24,9 +24,10 @@ import {
   IconButton,
   Badge,
   AppBar,
-  Toolbar
+  Toolbar,
+  InputAdornment,
+  Tooltip
 } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import ListAltIcon from '@mui/icons-material/ListAlt';
@@ -35,33 +36,31 @@ import ChevronRight from '@mui/icons-material/ChevronRight';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { styled } from '@mui/material/styles';
-import { checkImage, ImageData } from './services/api';
-import { createWishlist, getAllWishlists, addToWishlist, getWishlist, removeFromWishlist, deleteWishlist } from './services/wishlistService';
-
-const VisuallyHiddenInput = styled('input')({
-  clip: 'rect(0 0 0 0)',
-  clipPath: 'inset(50%)',
-  height: 1,
-  overflow: 'hidden',
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  whiteSpace: 'nowrap',
-  width: 1,
-});
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { checkImage, type CheckImageResponse } from './services/api';
+import { getImageByUrl, ImageByUrlResponse, getImage } from './services/api';
+import { createWishlist, getAllWishlists, addToWishlist, getWishlist, removeFromWishlist, deleteWishlist, getWishlistDetails, type WishlistItemDetail } from './services/wishlistService';
 
 const App: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // URL search states
+  const [imageUrlInput, setImageUrlInput] = useState<string>('');
+  const [displayImageSrc, setDisplayImageSrc] = useState<string | null>(null);
+  const [displayMeta, setDisplayMeta] = useState<{ placeName: string; description?: string } | null>(null);
+  const [lastByUrlData, setLastByUrlData] = useState<ImageByUrlResponse | null>(null);
+  const [lastCheckedImage, setLastCheckedImage] = useState<{ base64?: string; type?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<ImageData | null>(null);
+  const [result, setResult] = useState<CheckImageResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  const [success, setSuccess] = useState<string | null>(null);
+  // Upload helpers
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  
   // Wishlist states
   const [wishlistDialogOpen, setWishlistDialogOpen] = useState(false);
   const [wishlists, setWishlists] = useState<{name: string, places: string[]}[]>([]);
   const [selectedWishlist, setSelectedWishlist] = useState<{name: string, places: string[]} | null>(null);
+  const [selectedWishlistDetails, setSelectedWishlistDetails] = useState<WishlistItemDetail[] | null>(null);
   const [newWishlistName, setNewWishlistName] = useState('');
   const [wishlistError, setWishlistError] = useState<string | null>(null);
   const [wishlistSuccess, setWishlistSuccess] = useState<string | null>(null);
@@ -91,33 +90,74 @@ const App: React.FC = () => {
     onConfirm: () => {}
   });
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      setSelectedFile(event.target.files[0]);
-      setError(null);
-      setResult(null);
-    }
-  };
-
-  const handleSubmit = useCallback(async () => {
-    if (!selectedFile) {
-      setError('Please select an image file');
+  const handleSearch = useCallback(async () => {
+    if (!imageUrlInput.trim()) {
+      setError('Please enter an image URL');
       return;
     }
-
-    setIsLoading(true);
     setError(null);
-
+    setSuccess(null);
+    setIsLoading(true);
+    setDisplayMeta(null);
+    setLastByUrlData(null);
     try {
-      const response = await checkImage(selectedFile);
-      setResult(response);
-    } catch (err) {
-      setError('Failed to process image. Please try again.');
-      console.error('Error uploading file:', err);
+      const data: ImageByUrlResponse = await getImageByUrl(imageUrlInput.trim());
+      const src = `data:${data.fileType};base64,${data.imageBase64}`;
+      setDisplayImageSrc(src);
+      setDisplayMeta({ placeName: data.placeName, description: data.description });
+      setLastByUrlData(data);
+    } catch (e) {
+      setDisplayImageSrc(null);
+      setDisplayMeta(null);
+      setError('Image not found for the given URL');
     } finally {
       setIsLoading(false);
     }
-  }, [selectedFile]);
+  }, [imageUrlInput]);
+
+  const handleSubmit = useCallback(async () => {}, []);
+
+  const handleOpenFilePicker = useCallback(() => {
+    setError(null);
+    setSuccess(null);
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChosen = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0];
+    // reset input value to allow same file selection again
+    e.currentTarget.value = '';
+    if (!file) return;
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await checkImage(file);
+      setResult(response);
+      setSuccess('Image checked successfully');
+      // If found in DB, fetch bytes to store base64 for wishlist
+      if (response.status === 'found' && response.imageId) {
+        try {
+          const dataUrl = await getImage(response.imageId);
+          // dataUrl format: data:<type>;base64,<payload>
+          const commaIdx = dataUrl.indexOf(',');
+          const semiIdx = dataUrl.indexOf(';');
+          const type = dataUrl.substring(5, semiIdx);
+          const base64 = dataUrl.substring(commaIdx + 1);
+          setLastCheckedImage({ base64, type });
+        } catch {
+          setLastCheckedImage(null);
+        }
+      } else {
+        setLastCheckedImage(null);
+      }
+    } catch (err) {
+      setError('Failed to process image. Please try again.');
+      console.error('Error checking image:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   // Load wishlists when the dialog opens
   const loadWishlists = useCallback(async () => {
@@ -149,31 +189,41 @@ const App: React.FC = () => {
     }
   }, [wishlistDialogOpen, loadWishlists]);
 
-  const handleAddToWishlist = async (wishlistName: string) => {
-    if (!result) return;
+  const handleAddToWishlist = async (wishlistName: string, placeNameParam?: string) => {
+    const placeName = placeNameParam || (result && result.placeName ? result.placeName : (displayMeta ? displayMeta.placeName : ''));
+    if (!placeName) return;
     try {
       setWishlistError(null);
       const wishlist = wishlists.find(wl => wl.name === wishlistName);
-      if (wishlist && wishlist.places.includes(result.placeName)) {
-        setWishlistError(`"${result.placeName}" is already in this wishlist`);
+      if (wishlist && wishlist.places.includes(placeName)) {
+        setWishlistError(`"${placeName}" is already in this wishlist`);
         setTimeout(() => setWishlistError(null), 3000);
         return;
       }
-      await addToWishlist(wishlistName, result.placeName);
+      const imageUrlForAdd = displayMeta ? imageUrlInput.trim() : (result && result.url ? result.url : undefined);
+      const descriptionForAdd = displayMeta ? displayMeta.description : (result && result.description ? result.description : undefined);
+      const imageBase64ForAdd = lastByUrlData ? lastByUrlData.imageBase64 : (lastCheckedImage ? lastCheckedImage.base64 : undefined);
+      const imageTypeForAdd = lastByUrlData ? lastByUrlData.fileType : (lastCheckedImage ? lastCheckedImage.type : undefined);
+      await addToWishlist(wishlistName, placeName, imageUrlForAdd, descriptionForAdd, imageBase64ForAdd, imageTypeForAdd);
       const updatedWishlists = wishlists.map(wl => {
         if (wl.name === wishlistName) {
-          return { ...wl, places: [...wl.places, result.placeName] };
+          return { ...wl, places: [...wl.places, placeName] };
         }
         return wl;
       });
       setWishlists(updatedWishlists);
-      setWishlistSuccess(`"${result.placeName}" has been added to "${wishlistName}"`);
+      setWishlistSuccess(`"${placeName}" has been added to "${wishlistName}"`);
       setTimeout(() => setWishlistSuccess(null), 3000);
       if (selectedWishlist && selectedWishlist.name === wishlistName) {
-        setSelectedWishlist({
-          ...selectedWishlist,
-          places: [...selectedWishlist.places, result.placeName]
-        });
+        // refresh details to include imageUrl/description
+        try {
+          const details = await getWishlistDetails(wishlistName);
+          setSelectedWishlistDetails(details);
+          setSelectedWishlist({
+            ...selectedWishlist,
+            places: [...selectedWishlist.places, placeName]
+          });
+        } catch { /* ignore */ }
       }
     } catch {
       setWishlistError('Failed to add to wishlist. Please try again.');
@@ -201,10 +251,20 @@ const App: React.FC = () => {
     setWishlistError(null);
     setWishlistSuccess(null);
     setSelectedWishlist(wishlist);
+    // load details for richer rendering (imageUrl, description)
+    (async () => {
+      try {
+        const details = await getWishlistDetails(wishlist.name);
+        setSelectedWishlistDetails(details);
+      } catch {
+        setSelectedWishlistDetails([]);
+      }
+    })();
   };
 
   const handleBackToWishlists = () => {
     setSelectedWishlist(null);
+    setSelectedWishlistDetails(null);
   };
 
   const handleRemoveFromWishlist = async (wishlistName: string, placeName: string) => {
@@ -281,7 +341,7 @@ const App: React.FC = () => {
         <AppBar position="static" color="default" elevation={0}>
           <Toolbar sx={{ justifyContent: 'space-between' }}>
             <Typography variant="h6" component="div">
-              Image Place Recognition
+              Triply
             </Typography>
             <IconButton
                 color="inherit"
@@ -300,53 +360,87 @@ const App: React.FC = () => {
               Discover Places
             </Typography>
             <Typography variant="body1" paragraph>
-              Upload an image to detect the place shown in it.
+              Enter an image URL to view the stored image.
             </Typography>
             <Box sx={{ my: 4 }}>
-              <Button
-                  component="label"
-                  variant="contained"
-                  startIcon={<CloudUploadIcon />}
-                  disabled={isLoading}
-              >
-                {selectedFile ? 'Choose Another Image' : 'Choose Image'}
-                <VisuallyHiddenInput
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'center' }}>
+                <TextField
+                  label="Image URL"
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  value={imageUrlInput}
+                  onChange={(e) => setImageUrlInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Tooltip title="Upload image">
+                          <span>
+                            <IconButton size="small" onClick={handleOpenFilePicker} disabled={isLoading} aria-label="upload image">
+                              <CloudUploadIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </InputAdornment>
+                    )
+                  }}
                 />
-              </Button>
-              {selectedFile && (
-                  <Box sx={{ mt: 2, textAlign: 'center' }}>
-                    <img
-                        src={URL.createObjectURL(selectedFile)}
-                        alt="Uploaded preview"
-                        style={{
-                          maxWidth: '100%',
-                          maxHeight: '300px',
-                          borderRadius: '4px',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                        }}
-                    />
-                  </Box>
+                {/* Hidden file input for upload */}
+                <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChosen} />
+                <Button
+                  variant="contained"
+                  onClick={handleSearch}
+                  disabled={isLoading || !imageUrlInput.trim()}
+                >
+                  {isLoading ? <CircularProgress size={24} /> : 'Search'}
+                </Button>
+              </Box>
+              {displayImageSrc && (
+                <Box sx={{ mt: 2, textAlign: 'center' }}>
+                  <img
+                    src={displayImageSrc}
+                    alt="Fetched from URL"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '300px',
+                      borderRadius: '4px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                  {displayMeta && (
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="subtitle1">{displayMeta.placeName}</Typography>
+                      {displayMeta.description && (
+                        <Typography variant="body2" color="text.secondary">{displayMeta.description}</Typography>
+                      )}
+                      <Box sx={{ mt: 2 }}>
+                        <Button
+                          variant="outlined"
+                          startIcon={<BookmarkAddIcon />}
+                          onClick={async () => {
+                            await loadWishlists();
+                            setWishlistDialogOpen(true);
+                          }}
+                          sx={{ mt: 1 }}
+                        >
+                          Add to Wishlist
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
               )}
             </Box>
-            {selectedFile && !result && (
-                <Box sx={{ my: 2 }}>
-                  <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={handleSubmit}
-                      disabled={isLoading}
-                      sx={{ minWidth: 120 }}
-                  >
-                    {isLoading ? <CircularProgress size={24} /> : 'Detect the Place'}
-                  </Button>
-                </Box>
-            )}
+            {/* Detection flow disabled for URL-based viewing */}
             {error && (
                 <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
                   {error}
+                </Alert>
+            )}
+            {success && (
+                <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+                  {success}
                 </Alert>
             )}
             {result && (
@@ -367,6 +461,7 @@ const App: React.FC = () => {
                   </Box>
                 </Box>
             )}
+
             {/* Wishlist Dialog */}
             <Dialog
                 open={wishlistDialogOpen}
@@ -407,14 +502,14 @@ const App: React.FC = () => {
                 )}
                 {selectedWishlist ? (
                     <>
-                      {result && (
+                      {(result || displayMeta) && (
                           <Box sx={{ mb: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                               Adding to wishlist:
                             </Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                               <PlaceIcon color="primary" />
-                              <Typography variant="body1">{result.placeName}</Typography>
+                              <Typography variant="body1">{result ? result.placeName : (displayMeta ? displayMeta.placeName : '')}</Typography>
                               <Button
                                   variant="contained"
                                   size="small"
@@ -430,35 +525,76 @@ const App: React.FC = () => {
                         Places in this wishlist:
                       </Typography>
                       <List sx={{ maxHeight: 300, overflow: 'auto', bgcolor: 'background.paper', borderRadius: 1 }}>
-                        {selectedWishlist.places.length > 0 ? (
-                            selectedWishlist.places.map((place, index) => (
-                                <React.Fragment key={index}>
-                                  <ListItem
-                                      secondaryAction={
-                                        <IconButton
-                                            edge="end"
-                                            aria-label="delete"
-                                            onClick={() => handleRemoveFromWishlist(selectedWishlist.name, place)}
-                                        >
-                                          <DeleteIcon />
-                                        </IconButton>
-                                      }
-                                      disablePadding
+                        {selectedWishlistDetails && selectedWishlistDetails.length > 0 ? (
+                          selectedWishlistDetails.map((item, index) => (
+                            <React.Fragment key={index}>
+                              <ListItem
+                                secondaryAction={
+                                  <IconButton
+                                    edge="end"
+                                    aria-label="delete"
+                                    onClick={() => handleRemoveFromWishlist(selectedWishlist.name, item.placeName)}
                                   >
-                                    <ListItemButton>
-                                      <ListItemIcon>
-                                        <PlaceIcon color="primary" />
-                                      </ListItemIcon>
-                                      <ListItemText primary={place} />
-                                    </ListItemButton>
-                                  </ListItem>
-                                  <Divider />
-                                </React.Fragment>
-                            ))
+                                    <DeleteIcon />
+                                  </IconButton>
+                                }
+                                disablePadding
+                              >
+                                <ListItemButton>
+                                  <ListItemIcon>
+                                    {(() => {
+                                      const thumbSrc = item.imageBase64 && item.imageType
+                                        ? `data:${item.imageType};base64,${item.imageBase64}`
+                                        : (item.imageUrl || undefined);
+                                      return thumbSrc ? (
+                                        <img
+                                          src={thumbSrc}
+                                          alt={item.placeName}
+                                          style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover' }}
+                                        />
+                                      ) : (
+                                      <PlaceIcon color="primary" />
+                                      );
+                                    })()}
+                                  </ListItemIcon>
+                                  <ListItemText
+                                    primary={item.placeName}
+                                    secondary={item.description}
+                                  />
+                                </ListItemButton>
+                              </ListItem>
+                              <Divider />
+                            </React.Fragment>
+                          ))
+                        ) : selectedWishlist.places.length > 0 ? (
+                          selectedWishlist.places.map((place, index) => (
+                            <React.Fragment key={index}>
+                              <ListItem
+                                secondaryAction={
+                                  <IconButton
+                                    edge="end"
+                                    aria-label="delete"
+                                    onClick={() => handleRemoveFromWishlist(selectedWishlist.name, place)}
+                                  >
+                                    <DeleteIcon />
+                                  </IconButton>
+                                }
+                                disablePadding
+                              >
+                                <ListItemButton>
+                                  <ListItemIcon>
+                                    <PlaceIcon color="primary" />
+                                  </ListItemIcon>
+                                  <ListItemText primary={place} />
+                                </ListItemButton>
+                              </ListItem>
+                              <Divider />
+                            </React.Fragment>
+                          ))
                         ) : (
-                            <Typography variant="body2" color="textSecondary" sx={{ py: 2, textAlign: 'center' }}>
-                              No places in this wishlist yet.
-                            </Typography>
+                          <Typography variant="body2" color="textSecondary" sx={{ py: 2, textAlign: 'center' }}>
+                            No places in this wishlist yet.
+                          </Typography>
                         )}
                       </List>
                       <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>

@@ -65,6 +65,22 @@ public class WishlistService {
         return wishlistRepository.save(wishlist);
     }
 
+    public Wishlist addPlaceToWishlist(String name, String placeName, String imageUrl, String description) {
+        Wishlist wishlist = wishlistRepository.findByName(name)
+                .orElseThrow(() -> new ResourceNotFoundException("Wishlist not found"));
+
+        wishlist.addPlace(placeName, imageUrl, description);
+        return wishlistRepository.save(wishlist);
+    }
+
+    public Wishlist addPlaceToWishlist(String name, String placeName, String imageUrl, String description, String imageBase64, String imageType) {
+        Wishlist wishlist = wishlistRepository.findByName(name)
+                .orElseThrow(() -> new ResourceNotFoundException("Wishlist not found"));
+
+        wishlist.addPlace(placeName, imageUrl, description, imageBase64, imageType);
+        return wishlistRepository.save(wishlist);
+    }
+
     public void removePlaceFromWishlist(String name, String placeName) {
         Wishlist wishlist = wishlistRepository.findByName(name)
                 .orElseThrow(() -> new ResourceNotFoundException("Wishlist not found"));

@@ -12,10 +12,22 @@ export const getAllWishlists = async () => {
   return response.data;
 };
 
-export const addToWishlist = async (wishlistName: string, placeName: string) => {
+export const addToWishlist = async (
+  wishlistName: string,
+  placeName: string,
+  imageUrl?: string,
+  description?: string,
+  imageBase64?: string,
+  imageType?: string,
+) => {
+  const payload: any = { placeName };
+  if (imageUrl) payload.imageUrl = imageUrl;
+  if (description) payload.description = description;
+  if (imageBase64) payload.imageBase64 = imageBase64;
+  if (imageType) payload.imageType = imageType;
   const response = await axios.post(
     `${API_BASE_URL}/wishlists/${encodeURIComponent(wishlistName)}/places`,
-    { placeName }
+    payload
   );
   return response.data;
 };
@@ -23,6 +35,19 @@ export const addToWishlist = async (wishlistName: string, placeName: string) => 
 export const getWishlist = async (name: string) => {
   const response = await axios.get(`${API_BASE_URL}/wishlists/${encodeURIComponent(name)}`);
   return response.data;
+};
+
+export interface WishlistItemDetail {
+  placeName: string;
+  imageUrl?: string;
+  description?: string;
+  imageBase64?: string;
+  imageType?: string;
+}
+
+export const getWishlistDetails = async (name: string): Promise<WishlistItemDetail[]> => {
+  const response = await axios.get(`${API_BASE_URL}/wishlists/${encodeURIComponent(name)}/details`);
+  return response.data as WishlistItemDetail[];
 };
 
 export const deleteWishlist = async (name: string) => {

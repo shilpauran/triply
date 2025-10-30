@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Base64;
 
 @RestController
 @RequestMapping("/api/images")
@@ -31,9 +32,11 @@ public class ImageController {
     @PostMapping("/upload")
     public ResponseEntity<ImageData> uploadImage(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("placeName") String placeName) {
+            @RequestParam("placeName") String placeName,
+            @RequestParam("url") String url,
+            @RequestParam(value = "description", required = false) String description) {
         try {
-            ImageData savedImage = imageService.uploadImage(file, placeName);
+            ImageData savedImage = imageService.uploadImage(file, placeName, url, description);
             return new ResponseEntity<>(savedImage, HttpStatus.CREATED);
         } catch (IOException e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -50,6 +53,22 @@ public class ImageController {
                     return new ResponseEntity<>(image.getData(), headers, HttpStatus.OK);
                 })
                 .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    }
+
+    @GetMapping("/by-url")
+    public ResponseEntity<?> getImageByUrl(@RequestParam("url") String url) {
+        Optional<ImageData> opt = imageService.getImageByUrl(url);
+        if (opt.isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        ImageData image = opt.get();
+        Map<String, Object> body = new HashMap<>();
+        body.put("placeName", image.getPlaceName());
+        body.put("description", image.getDescription());
+        body.put("fileType", image.getFileType());
+        body.put("size", image.getSize());
+        body.put("imageBase64", Base64.getEncoder().encodeToString(image.getData()));
+        return new ResponseEntity<>(body, HttpStatus.OK);
     }
 
     @GetMapping
@@ -76,6 +95,12 @@ public class ImageController {
                 response.put("status", "found");
                 response.put("placeName", existingImage.get().getPlaceName());
                 response.put("imageId", existingImage.get().getId());
+                if (existingImage.get().getUrl() != null) {
+                    response.put("url", existingImage.get().getUrl());
+                }
+                if (existingImage.get().getDescription() != null) {
+                    response.put("description", existingImage.get().getDescription());
+                }
                 return new ResponseEntity<>(response, HttpStatus.OK);
             } else {
                 Map<String, String> response = new HashMap<>();
@@ -91,3 +116,4 @@ public class ImageController {
         }
     }
 }
+

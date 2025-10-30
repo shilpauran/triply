@@ -11,6 +11,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/wishlists")
@@ -58,18 +60,54 @@ public class WishlistController {
         }
     }
 
+    // New endpoint returning place details (placeName, imageUrl, description)
+    @GetMapping("/{name}/details")
+    public ResponseEntity<List<Map<String, String>>> getWishlistDetails(@PathVariable String name) {
+        try {
+            Wishlist wishlist = wishlistService.getWishlist(name);
+            List<Map<String, String>> details = new ArrayList<>();
+            for (String place : wishlist.getPlaceNames()) {
+                Map<String, String> item = new HashMap<>();
+                item.put("placeName", place);
+                String imageUrl = wishlist.getPlaceImageUrls() != null ? wishlist.getPlaceImageUrls().get(place) : null;
+                String description = wishlist.getPlaceDescriptions() != null ? wishlist.getPlaceDescriptions().get(place) : null;
+                String imageBase64 = wishlist.getPlaceImageBase64() != null ? wishlist.getPlaceImageBase64().get(place) : null;
+                String imageType = wishlist.getPlaceImageTypes() != null ? wishlist.getPlaceImageTypes().get(place) : null;
+                if (imageUrl != null) item.put("imageUrl", imageUrl);
+                if (description != null) item.put("description", description);
+                if (imageBase64 != null) item.put("imageBase64", imageBase64);
+                if (imageType != null) item.put("imageType", imageType);
+                details.add(item);
+            }
+            return ResponseEntity.ok(details);
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+    }
+
     @PostMapping("/{name}/places")
     public ResponseEntity<Wishlist> addToWishlist(
             @PathVariable String name,
             @RequestBody Map<String, String> request) {
         
         String placeName = request.get("placeName");
+        String imageUrl = request.get("imageUrl");
+        String description = request.get("description");
+        String imageBase64 = request.get("imageBase64");
+        String imageType = request.get("imageType");
         if (placeName == null || placeName.trim().isEmpty()) {
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
         
         try {
-            Wishlist wishlist = wishlistService.addPlaceToWishlist(name, placeName);
+            Wishlist wishlist;
+            if ((imageBase64 != null && !imageBase64.trim().isEmpty()) || (imageType != null && !imageType.trim().isEmpty())) {
+                wishlist = wishlistService.addPlaceToWishlist(name, placeName, imageUrl, description, imageBase64, imageType);
+            } else if ((imageUrl != null && !imageUrl.trim().isEmpty()) || (description != null && !description.trim().isEmpty())) {
+                wishlist = wishlistService.addPlaceToWishlist(name, placeName, imageUrl, description);
+            } else {
+                wishlist = wishlistService.addPlaceToWishlist(name, placeName);
+            }
             return ResponseEntity.ok(wishlist);
         } catch (Exception e) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
