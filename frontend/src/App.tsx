@@ -133,29 +133,113 @@ const App: React.FC = () => {
     setSuccess(null);
     try {
       const response = await checkImage(file);
-      setResult(response);
-      setSuccess('Image checked successfully');
-      // Prefer iconBase64 from response; otherwise, if found by ID, fetch bytes
-      if (response.status === 'found') {
-        if (response.iconBase64 && response.fileType) {
-          setLastCheckedImage({ base64: response.iconBase64, type: response.fileType });
-        } else if (response.imageId) {
-          try {
-            const dataUrl = await getImage(response.imageId);
-            // dataUrl format: data:<type>;base64,<payload>
-            const commaIdx = dataUrl.indexOf(',');
-            const semiIdx = dataUrl.indexOf(';');
-            const type = dataUrl.substring(5, semiIdx);
-            const base64 = dataUrl.substring(commaIdx + 1);
-            setLastCheckedImage({ base64, type });
-          } catch {
+      if (!imageUrlInput.trim()) {
+        // Make upload behave like the URL search flow when no URL is entered
+        if (response.status === 'found') {
+          // If we have a URL, fetch full image and meta like handleSearch
+          if (response.url) {
+            try {
+              const data = await getImageByUrl(response.url);
+              const src = `data:${data.fileType};base64,${data.imageBase64}`;
+              setDisplayImageSrc(src);
+              setDisplayMeta({ placeName: data.placeName, description: data.description });
+              setLastByUrlData(data);
+              setImageUrlInput(response.url);
+            } catch {
+              // Fallback to using available response/icon or image bytes
+              if (response.iconBase64 && response.fileType) {
+                setDisplayImageSrc(`data:${response.fileType};base64,${response.iconBase64}`);
+                setDisplayMeta({ placeName: response.placeName || '', description: response.description });
+                setLastCheckedImage({ base64: response.iconBase64, type: response.fileType });
+              } else if (response.imageId) {
+                try {
+                  const dataUrl = await getImage(response.imageId);
+                  setDisplayImageSrc(dataUrl);
+                  const commaIdx = dataUrl.indexOf(',');
+                  const semiIdx = dataUrl.indexOf(';');
+                  const type = dataUrl.substring(5, semiIdx);
+                  const base64 = dataUrl.substring(commaIdx + 1);
+                  setLastCheckedImage({ base64, type });
+                  setDisplayMeta({ placeName: response.placeName || '', description: response.description });
+                } catch {
+                  setDisplayImageSrc(null);
+                  setDisplayMeta(null);
+                  setLastCheckedImage(null);
+                }
+              } else {
+                setDisplayImageSrc(null);
+                setDisplayMeta(null);
+                setLastCheckedImage(null);
+              }
+            }
+          } else if (response.iconBase64 && response.fileType) {
+            // No URL: still render like search using the available image/icon
+            setDisplayImageSrc(`data:${response.fileType};base64,${response.iconBase64}`);
+            setDisplayMeta({ placeName: response.placeName || '', description: response.description });
+            setLastCheckedImage({ base64: response.iconBase64, type: response.fileType });
+            setLastByUrlData(null);
+          } else if (response.imageId) {
+            try {
+              const dataUrl = await getImage(response.imageId);
+              setDisplayImageSrc(dataUrl);
+              const commaIdx = dataUrl.indexOf(',');
+              const semiIdx = dataUrl.indexOf(';');
+              const type = dataUrl.substring(5, semiIdx);
+              const base64 = dataUrl.substring(commaIdx + 1);
+              setLastCheckedImage({ base64, type });
+              setDisplayMeta({ placeName: response.placeName || '', description: response.description });
+              setLastByUrlData(null);
+            } catch {
+              setDisplayImageSrc(null);
+              setDisplayMeta(null);
+              setLastCheckedImage(null);
+              setLastByUrlData(null);
+            }
+          } else {
+            setDisplayImageSrc(null);
+            setDisplayMeta(null);
             setLastCheckedImage(null);
+            setLastByUrlData(null);
           }
+          // Hide the detection-specific result section for consistency with search view
+          setResult(null);
+          setSuccess(null);
         } else {
+          // Not found -> match search behavior
+          setDisplayImageSrc(null);
+          setDisplayMeta(null);
           setLastCheckedImage(null);
+          setLastByUrlData(null);
+          setResult(null);
+          setError('Image not found for the given URL');
         }
       } else {
-        setLastCheckedImage(null);
+        // URL input has text: keep original detection behavior
+        if (response.status === 'found') {
+          setResult(response);
+          // Prefer iconBase64 from response; otherwise, if found by ID, fetch bytes
+          if (response.iconBase64 && response.fileType) {
+            setLastCheckedImage({ base64: response.iconBase64, type: response.fileType });
+          } else if (response.imageId) {
+            try {
+              const dataUrl = await getImage(response.imageId);
+              const commaIdx = dataUrl.indexOf(',');
+              const semiIdx = dataUrl.indexOf(';');
+              const type = dataUrl.substring(5, semiIdx);
+              const base64 = dataUrl.substring(commaIdx + 1);
+              setLastCheckedImage({ base64, type });
+            } catch {
+              setLastCheckedImage(null);
+            }
+          } else {
+            setLastCheckedImage(null);
+          }
+          setSuccess('Image checked successfully');
+        } else {
+          setLastCheckedImage(null);
+          setResult(null);
+          setError('Failed to find a matching image');
+        }
       }
     } catch (err) {
       setError('Failed to process image. Please try again.');
