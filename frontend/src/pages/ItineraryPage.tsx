@@ -8,7 +8,7 @@ import CardContent from '@mui/material/CardContent';
 import CardActions from '@mui/material/CardActions';
 import CardMedia from '@mui/material/CardMedia';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { getCards, type CardDTO } from '../services/api';
+import { getPersonalizedCards, type PersonalizedCardDTO } from '../services/api';
 
 interface ItineraryPageProps {
   wishlistName: string;
@@ -16,7 +16,7 @@ interface ItineraryPageProps {
 }
 
 const ItineraryPage: React.FC<ItineraryPageProps> = ({ wishlistName, onBack }) => {
-  const [cards, setCards] = useState<CardDTO[]>([]);
+  const [cards, setCards] = useState<PersonalizedCardDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
   // Filters
   const [city, setCity] = useState<string>('');
@@ -92,7 +92,7 @@ const ItineraryPage: React.FC<ItineraryPageProps> = ({ wishlistName, onBack }) =
   useEffect(() => {
     (async () => {
       try {
-        const data = await getCards();
+        const data = await getPersonalizedCards();
         setCards(data);
       } catch (e) {
         setError('Failed to load recommendations');

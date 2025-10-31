@@ -83,3 +83,42 @@ export const getCards = async (): Promise<CardDTO[]> => {
   const response = await axios.get(`${API_BASE_URL}/api/cards`);
   return response.data as CardDTO[];
 };
+
+// Personalized Cards API
+export interface PersonalizedCardDTO {
+  title: string;
+  shortDescription: string;
+  durationDays: string;
+  thumbnailImage: string;
+}
+
+export const getPersonalizedCards = async (): Promise<PersonalizedCardDTO[]> => {
+  const response = await axios.get(`${API_BASE_URL}/api/personalized-cards`);
+  return response.data as PersonalizedCardDTO[];
+};
+
+// Influencer Cards API
+export interface InfluencerCardDTO {
+  title: string;
+  shortDescription: string;
+  durationDays: string;
+  thumbnailImage: string;
+}
+
+export const getInfluencerCards = async (): Promise<InfluencerCardDTO[]> => {
+  const response = await axios.get(`${API_BASE_URL}/api/influencer-cards`);
+  return response.data as InfluencerCardDTO[];
+};
+
+// Micro Itinerary Cards API
+export interface MicroItineraryCardDTO {
+  title: string;
+  shortDescription: string;
+  durationDays: string;
+  thumbnailImage: string;
+}
+
+export const getMicroItineraryCards = async (): Promise<MicroItineraryCardDTO[]> => {
+  const response = await axios.get(`${API_BASE_URL}/api/micro-itinerary-cards`);
+  return response.data as MicroItineraryCardDTO[];
+};

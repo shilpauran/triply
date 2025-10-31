@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Routes, Route } from 'react-router-dom';
 import ItineraryPage from './pages/ItineraryPage';
+import WishlistDetailsPage from './pages/WishlistDetailsPage';
 import {
   Button,
   Container,
@@ -344,16 +345,8 @@ const App: React.FC = () => {
   const handleViewWishlist = (wishlist: {name: string, places: string[]}) => {
     setWishlistError(null);
     setWishlistSuccess(null);
-    setSelectedWishlist(wishlist);
-    // load details for richer rendering (imageUrl, description)
-    (async () => {
-      try {
-        const details = await getWishlistDetails(wishlist.name);
-        setSelectedWishlistDetails(details);
-      } catch {
-        setSelectedWishlistDetails([]);
-      }
-    })();
+    setWishlistDialogOpen(false);
+    navigate(`/wishlist/${encodeURIComponent(wishlist.name)}`);
   };
 
   const handleBackToWishlists = () => {
@@ -430,7 +423,7 @@ const App: React.FC = () => {
     );
   }
 
-  return (
+  const homeElement = (
       <>
         <AppBar position="static" color="default" elevation={0}>
           <Toolbar sx={{ justifyContent: 'space-between' }}>
@@ -596,25 +589,6 @@ const App: React.FC = () => {
                 )}
                 {selectedWishlist ? (
                     <>
-                      {(result || displayMeta) && (
-                          <Box sx={{ mb: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                              Adding to wishlist:
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <PlaceIcon color="primary" />
-                              <Typography variant="body1">{result ? result.placeName : (displayMeta ? displayMeta.placeName : '')}</Typography>
-                              <Button
-                                  variant="contained"
-                                  size="small"
-                                  onClick={() => handleAddToWishlist(selectedWishlist.name)}
-                                  sx={{ ml: 'auto' }}
-                              >
-                                Add here
-                              </Button>
-                            </Box>
-                          </Box>
-                      )}
                       <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
                         Places in this wishlist:
                       </Typography>
@@ -623,6 +597,7 @@ const App: React.FC = () => {
                           selectedWishlistDetails.map((item, index) => (
                             <React.Fragment key={index}>
                               <ListItem
+                                sx={{ pr: 9 }}
                                 secondaryAction={
                                   <IconButton
                                     edge="end"
@@ -647,7 +622,7 @@ const App: React.FC = () => {
                                           style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover' }}
                                         />
                                       ) : (
-                                      <PlaceIcon color="primary" />
+                                        <PlaceIcon color="primary" />
                                       );
                                     })()}
                                   </ListItemIcon>
@@ -660,35 +635,38 @@ const App: React.FC = () => {
                               <Divider />
                             </React.Fragment>
                           ))
-                        ) : selectedWishlist.places.length > 0 ? (
-                          selectedWishlist.places.map((place, index) => (
-                            <React.Fragment key={index}>
-                              <ListItem
-                                secondaryAction={
-                                  <IconButton
-                                    edge="end"
-                                    aria-label="delete"
-                                    onClick={() => handleRemoveFromWishlist(selectedWishlist.name, place)}
-                                  >
-                                    <DeleteIcon />
-                                  </IconButton>
-                                }
-                                disablePadding
-                              >
-                                <ListItemButton>
-                                  <ListItemIcon>
-                                    <PlaceIcon color="primary" />
-                                  </ListItemIcon>
-                                  <ListItemText primary={place} />
-                                </ListItemButton>
-                              </ListItem>
-                              <Divider />
-                            </React.Fragment>
-                          ))
                         ) : (
-                          <Typography variant="body2" color="textSecondary" sx={{ py: 2, textAlign: 'center' }}>
-                            No places in this wishlist yet.
-                          </Typography>
+                          selectedWishlist.places.length > 0 ? (
+                            selectedWishlist.places.map((place, index) => (
+                              <React.Fragment key={index}>
+                                <ListItem
+                                  sx={{ pr: 9 }}
+                                  secondaryAction={
+                                    <IconButton
+                                      edge="end"
+                                      aria-label="delete"
+                                      onClick={() => handleRemoveFromWishlist(selectedWishlist.name, place)}
+                                    >
+                                      <DeleteIcon />
+                                    </IconButton>
+                                  }
+                                  disablePadding
+                                >
+                                  <ListItemButton>
+                                    <ListItemIcon>
+                                      <PlaceIcon color="primary" />
+                                    </ListItemIcon>
+                                    <ListItemText primary={place} />
+                                  </ListItemButton>
+                                </ListItem>
+                                <Divider />
+                              </React.Fragment>
+                            ))
+                          ) : (
+                            <Typography variant="body2" color="textSecondary" sx={{ py: 2, textAlign: 'center' }}>
+                              No places in this wishlist yet.
+                            </Typography>
+                          )
                         )}
                       </List>
                       <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
@@ -718,14 +696,24 @@ const App: React.FC = () => {
                             wishlists.map((wishlist) => (
                                 <div key={wishlist.name}>
                                   <ListItem
+                                      sx={{ pr: 20 }}
                                       secondaryAction={
-                                        <IconButton
-                                            edge="end"
-                                            aria-label="delete"
-                                            onClick={() => handleDeleteWishlist(wishlist.name)}
-                                        >
-                                          <DeleteIcon />
-                                        </IconButton>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                          <IconButton
+                                              edge="end"
+                                              aria-label="navigate"
+                                              onClick={() => handleViewWishlist(wishlist)}
+                                          >
+                                            <ChevronRight />
+                                          </IconButton>
+                                          <IconButton
+                                              edge="end"
+                                              aria-label="delete"
+                                              onClick={() => handleDeleteWishlist(wishlist.name)}
+                                          >
+                                            <DeleteIcon />
+                                          </IconButton>
+                                        </Box>
                                       }
                                       disablePadding
                                   >
@@ -737,7 +725,16 @@ const App: React.FC = () => {
                                           primary={wishlist.name}
                                           secondary={`${wishlist.places.length} place${wishlist.places.length !== 1 ? 's' : ''}`}
                                       />
-                                      <ChevronRight />
+                                      {(result || displayMeta) && (
+                                        <Button
+                                          variant="outlined"
+                                          size="small"
+                                          onClick={(e) => { e.stopPropagation(); handleAddToWishlist(wishlist.name); }}
+                                          sx={{ ml: 'auto' }}
+                                        >
+                                          Add here
+                                        </Button>
+                                      )}
                                     </ListItemButton>
                                   </ListItem>
                                   <Divider />
@@ -805,6 +802,13 @@ const App: React.FC = () => {
           </Paper>
         </Container>
       </>
+  );
+
+  return (
+    <Routes>
+      <Route path="/wishlist/:name" element={<WishlistDetailsPage />} />
+      <Route path="*" element={homeElement} />
+    </Routes>
   );
 };
 
